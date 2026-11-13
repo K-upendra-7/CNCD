@@ -2,7 +2,9 @@
 using namespace std;
 
 int prec(char c) {
-    return (c == '*' || c == '/') ? 2 : (c == '+' || c == '-') ? 1 : 0;
+    if (c == '*' || c == '/') return 2;
+    if (c == '+' || c == '-') return 1;
+    return 0;
 }
 
 void applyOp(stack<string>& val, stack<char>& op) {

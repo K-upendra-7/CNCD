@@ -1,307 +1,124 @@
-
 #include <bits/stdc++.h>
 using namespace std;
 
 map<char, vector<string>> grammar;
 map<pair<char, char>, string> table;
 map<char, set<char>> firstSet, followSet;
-char start;
+char startSymbol;
 
-set<char> FIRST(char ch)
-{
-    if (!grammar.count(ch))
-        return {ch};
-
-    return firstSet[ch];
-}
-
-set<char> FOLLOW(char ch)
-{
-    return followSet[ch];
-}
-
-set<char> firstOfString(string s)
-{
-    set<char> result;
-
-    if (s.empty())
-        return {'#'};
-
-    for (char c : s)
-    {
-        set<char> temp = FIRST(c);
-
-        for (char x : temp)
-            if (x != '#')
-                result.insert(x);
-
-        if (!temp.count('#'))
-            return result;
+set<char> firstOfString(string s) {
+    if (s.empty() || s == "#") return {'#'};
+    set<char> res;
+    for (char c : s) {
+        set<char> temp = grammar.count(c) ? firstSet[c] : set<char>{c};
+        for (char x : temp) if (x != '#') res.insert(x);
+        if (!temp.count('#')) return res;
     }
-
-    result.insert('#');
-    return result;
+    res.insert('#');
+    return res;
 }
 
-void calculateFirst()
-{
-    bool changed = true;
-
-    while (changed)
-    {
-        changed = false;
-
-        for (auto [nt, productions] : grammar)
-        {
-            for (string p : productions)
-            {
-                set<char> temp = firstOfString(p);
-
-                for (char c : temp)
-                    if (firstSet[nt].insert(c).second)
-                        changed = true;
-            }
-        }
-    }
-}
-
-void calculateFollow()
-{
-    followSet[start].insert('$');
-
-    bool changed = true;
-
-    while (changed)
-    {
-        changed = false;
-
-        for (auto [lhs, productions] : grammar)
-        {
-            for (string p : productions)
-            {
-                for (int i = 0; i < p.size(); i++)
-                {
-                    char ch = p[i];
-
-                    if (!grammar.count(ch))
-                        continue;
-
-                    set<char> temp = firstOfString(p.substr(i + 1));
-
-                    for (char c : temp)
-                    {
-                        if (c != '#' && followSet[ch].insert(c).second)
-                            changed = true;
-                    }
-
-                    if (temp.count('#'))
-                    {
-                        for (char c : followSet[lhs])
-                            if (followSet[ch].insert(c).second)
-                                changed = true;
-                    }
-                }
-            }
-        }
-    }
-}
-
-int main()
-{
+int main() {
     int n;
     cout << "Enter number of productions: ";
     cin >> n;
-
     cout << "Enter productions (E->TR):\n";
 
-    for (int i = 0; i < n; i++)
-    {
-        string s;
+    for (int i = 0; i < n; i++) {
+        string s, p;
         cin >> s;
-
-        int pos = s.find("->");
-
-        if (pos == string::npos || pos != 1)
-        {
-            cout << "Invalid production\n";
-            return 0;
-        }
-
         char lhs = s[0];
-        start = (i == 0) ? lhs : start;
-
-        string rhs = s.substr(pos + 2);
-        stringstream ss(rhs);
-        string p;
-
-        while (getline(ss, p, '|'))
-            grammar[lhs].push_back(p);
+        if (i == 0) startSymbol = lhs;
+        stringstream ss(s.substr(3));
+        while (getline(ss, p, '|')) grammar[lhs].push_back(p);
     }
 
-    calculateFirst();
-    calculateFollow();
-
-    cout << "\nFIRST SETS\n";
-
-    for (auto [nt, productions] : grammar)
-    {
-        cout << "FIRST(" << nt << ") = { ";
-
-        for (char c : FIRST(nt))
-            cout << c << " ";
-
-        cout << "}\n";
+    for (bool chg = true; chg; ) {
+        chg = false;
+        for (auto& [nt, prods] : grammar)
+            for (string& p : prods)
+                for (char c : firstOfString(p))
+                    chg |= firstSet[nt].insert(c).second;
     }
 
-    cout << "\nFOLLOW SETS\n";
-
-    for (auto [nt, productions] : grammar)
-    {
-        cout << "FOLLOW(" << nt << ") = { ";
-
-        for (char c : FOLLOW(nt))
-            cout << c << " ";
-
-        cout << "}\n";
+    followSet[startSymbol].insert('$');
+    for (bool chg = true; chg; ) {
+        chg = false;
+        for (auto& [lhs, prods] : grammar)
+            for (string& p : prods)
+                for (int i = 0; i < p.size(); i++) {
+                    if (!grammar.count(p[i])) continue;
+                    set<char> temp = firstOfString(p.substr(i + 1));
+                    for (char c : temp)
+                        if (c != '#') chg |= followSet[p[i]].insert(c).second;
+                    if (temp.count('#'))
+                        for (char c : followSet[lhs])
+                            chg |= followSet[p[i]].insert(c).second;
+                }
     }
 
-    set<char> terminals;
+    auto printSets = [](string title, map<char, set<char>>& mp) {
+        cout << "\n" << title << "\n";
+        for (auto& [nt, s] : mp) {
+            cout << nt << " : { ";
+            for (char c : s) cout << c << " ";
+            cout << "}\n";
+        }
+    };
+    printSets("FIRST SETS", firstSet);
+    printSets("FOLLOW SETS", followSet);
 
-    for (auto [nt, productions] : grammar)
-    {
-        for (string p : productions)
-        {
+    set<char> terms = {'$'};
+    for (auto& [nt, prods] : grammar) {
+        for (string& p : prods) {
             set<char> temp = firstOfString(p);
-
-            for (char t : temp)
-            {
-                if (t != '#')
-                {
-                    if (table.count({nt, t}))
-                    {
-                        cout << "\nGrammar is not LL(1)\n";
-                        return 0;
-                    }
-
-                    table[{nt, t}] = p;
-                    terminals.insert(t);
-                }
-            }
-
             if (temp.count('#'))
-            {
-                for (char t : FOLLOW(nt))
-                {
-                    if (table.count({nt, t}))
-                    {
-                        cout << "\nGrammar is not LL(1)\n";
-                        return 0;
-                    }
-
-                    table[{nt, t}] = p;
-                    terminals.insert(t);
-                }
+                temp.insert(followSet[nt].begin(), followSet[nt].end());
+            for (char t : temp) {
+                if (t == '#') continue;
+                if (table.count({nt, t})) return cout << "\nGrammar is not LL(1)\n", 0;
+                table[{nt, t}] = p;
+                terms.insert(t);
             }
         }
     }
 
-    terminals.insert('$');
-
-    cout << "\nPREDICTIVE PARSING TABLE\n";
-    cout << "NT\t";
-
-    for (char t : terminals)
-        cout << t << "\t";
-
+    cout << "\nPREDICTIVE PARSING TABLE\nNT\t";
+    for (char t : terms) cout << t << "\t";
     cout << "\n";
-
-    for (auto [nt, productions] : grammar)
-    {
+    for (auto& [nt, _] : grammar) {
         cout << nt << "\t";
-
-        for (char t : terminals)
-        {
-            if (table.count({nt, t}))
-                cout << table[{nt, t}] << "\t";
-            else
-                cout << "-\t";
-        }
-
+        for (char t : terms) cout << (table.count({nt, t}) ? table[{nt, t}] : "-") << "\t";
         cout << "\n";
     }
 
-    string input;
+    string input, st = {'$', startSymbol};
     cout << "\nEnter input string: ";
     cin >> input;
     input += '$';
 
-    stack<char> st;
-    st.push('$');
-    st.push(start);
-
-    int i = 0;
-    bool accepted = false;
-
     cout << "\nSTACK\t\tINPUT\t\tACTION\n";
+    int i = 0;
+    while (!st.empty()) {
+        char top = st.back(), cur = input[i];
+        cout << string(st.rbegin(), st.rend()) << "\t\t" << input.substr(i) << "\t\t";
 
-    while (!st.empty())
-    {
-        string currentStack = "";
-        stack<char> temp = st;
-
-        while (!temp.empty())
-        {
-            currentStack += temp.top();
-            temp.pop();
-        }
-
-        string remaining = input.substr(i);
-        char top = st.top();
-        char current = input[i];
-
-        cout << currentStack << "\t\t" << remaining << "\t\t";
-
-        if (top == '$' && current == '$')
-        {
-            cout << "ACCEPT\n";
-            accepted = true;
-            break;
-        }
-
-        if (top == current)
-        {
-            cout << "Match " << current << "\n";
-            st.pop();
+        if (top == '$' && cur == '$') {
+            cout << "ACCEPT\n\nString Accepted\n";
+            return 0;
+        } else if (top == cur) {
+            cout << "Match " << cur << "\n";
+            st.pop_back();
             i++;
-        }
-        else if (grammar.count(top))
-        {
-            if (!table.count({top, current}))
-            {
-                cout << "ERROR\n";
-                break;
-            }
-
-            string p = table[{top, current}];
+        } else if (table.count({top, cur})) {
+            string p = table[{top, cur}];
             cout << top << "->" << p << "\n";
-
-            st.pop();
-
-            if (p != "#")
-                for (int j = p.size() - 1; j >= 0; j--)
-                    st.push(p[j]);
-        }
-        else
-        {
-            cout << "ERROR\n";
-            break;
+            st.pop_back();
+            if (p != "#") st.append(p.rbegin(), p.rend());
+        } else {
+            cout << "ERROR\n\nString Rejected\n";
+            return 0;
         }
     }
-
-    if (accepted)
-        cout << "\nString Accepted\n";
-    else
-        cout << "\nString Rejected\n";
-
     return 0;
 }
