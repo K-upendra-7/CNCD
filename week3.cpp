@@ -17,13 +17,13 @@ set<char> FIRST(char ch){
     visited.insert(ch);
     set<char> result;
 
-    for (string p : grammar[ch])    {
-        if (p == "#")        {
+    for (string p : grammar[ch]) {
+        if (p == "#"){
             result.insert('#');
             continue;
         }
 
-        for (char c : p)        {
+        for (char c : p) {
             set<char> temp = FIRST(c);
 
             for (char x : temp)
@@ -34,11 +34,11 @@ set<char> FIRST(char ch){
                 break;
         }
 
-        if (p.size() > 0)        {
+        if (p.size() > 0) {
             bool nullable = true;
 
             for (char c : p)
-                if (!FIRST(c).count('#')){
+                if (!FIRST(c).count('#')) {
                     nullable = false;
                     break;
                 }
@@ -58,32 +58,32 @@ set<char> FOLLOW(char ch){
     if (ch == start)
         result.insert('$');
 
-    for (auto [lhs, productions] : grammar)    {
-        for (string p : productions)        {
-            for (int i = 0; i < p.size(); i++)            {
-                if (p[i] == ch)                {
-                    if (i + 1 < p.size())                    {
+    for (auto [lhs, productions] : grammar) {
+        for (string p : productions) {
+            for (int i = 0; i < p.size(); i++) {
+                if (p[i] == ch) {
+                    if (i + 1 < p.size()) {
                         bool nullable = true;
 
-                        for (int j = i + 1; j < p.size(); j++)                        {
+                        for (int j = i + 1; j < p.size(); j++) {
                             set<char> temp = FIRST(p[j]);
 
                             for (char x : temp)
                                 if (x != '#')
                                     result.insert(x);
 
-                            if (!temp.count('#'))                            {
+                            if (!temp.count('#')) {
                                 nullable = false;
                                 break;
                             }
                         }
 
-                        if (nullable && lhs != ch)                        {
+                        if (nullable && lhs != ch) {
                             set<char> temp = FOLLOW(lhs);
                             result.insert(temp.begin(), temp.end());
                         }
                     }
-                    else if (lhs != ch)                    {
+                    else if (lhs != ch) {
                         set<char> temp = FOLLOW(lhs);
                         result.insert(temp.begin(), temp.end());
                     }
