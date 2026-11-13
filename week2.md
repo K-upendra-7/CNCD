@@ -1,7 +1,37 @@
+lexel.l
+```
+%{
+#include <stdio.h>
+%}
+
+%%
+
+[ \t\r\n]+                                      {}
+"//".*                                          {}
+"/*"([^*]|\*+[^*/])*\*+"/"                      {}
+
+"int"|"float"|"char"|"if"|"else"|"while"|"return" { printf("KEYWORD: %s\n", yytext); }
+[0-9]+"."[0-9]+                                 { printf("FLOAT: %s\n", yytext); }
+[0-9]+                                          { printf("INT: %s\n", yytext); }
+[a-zA-Z_][a-zA-Z0-9_]*                          { printf("ID: %s\n", yytext); }
+"=="|"!="|"<="|">="|"<"|">"                     { printf("REL_OP: %s\n", yytext); }
+"+"|"-"|"*"|"/"|"="                             { printf("OP: %s\n", yytext); }
+"("|")"|"{"|"}"|";"|","                         { printf("DELIM: %s\n", yytext); }
+.                                               { printf("ERROR: %s\n", yytext); }
+
+%%
+
+int yywrap() {
+    return 1;
+}
+
+int main() {
+    yylex();
+    return 0;
+}
+```
+
 Compile and run
-
-If you are using Flex + GCC:
-
 ```
 flex lexer.l
 gcc lex.yy.c -o lexer
@@ -11,14 +41,6 @@ Run:
 
 ```
 ./lexer
-```
-
-On Windows with Flex/Bison installed:
-
-```
-flex lexer.l
-gcc lex.yy.c -o lexer.exe
-lexer.exe
 ```
 
 Example input
@@ -38,30 +60,30 @@ int main() {
 Output
 
 ```
-<KEYWORD, int>
-<IDENTIFIER, main>
-<DELIMITER, (>
-<DELIMITER, )>
-<DELIMITER, {>
-<KEYWORD, int>
-<IDENTIFIER, a>
-<OPERATOR, =>
-<INTEGER, 10>
-<DELIMITER, ;>
-<KEYWORD, int>
-<IDENTIFIER, b>
-<OPERATOR, =>
-<INTEGER, 20>
-<DELIMITER, ;>
-<KEYWORD, int>
-<IDENTIFIER, sum>
-<OPERATOR, =>
-<IDENTIFIER, a>
-<OPERATOR, +>
-<IDENTIFIER, b>
-<DELIMITER, ;>
-<KEYWORD, return>
-<IDENTIFIER, sum>
-<DELIMITER, ;>
-<DELIMITER, }>
+KEYWORD: int
+ID: main
+DELIM: (
+DELIM: )
+DELIM: {
+KEYWORD: int
+ID: a
+OP: =
+INT: 10
+DELIM: ;
+KEYWORD: int
+ID: b
+OP: =
+INT: 20
+DELIM: ;
+KEYWORD: int
+ID: sum
+OP: =
+ID: a
+OP: +
+ID: b
+DELIM: ;
+KEYWORD: return
+ID: sum
+DELIM: ;
+DELIM: }
 ```

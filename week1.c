@@ -70,8 +70,7 @@ int main() {
             token[i] = '\0';
             ungetc(ch, fp);
 
-            printf("%s: %s\n",
-                   isKeyword(token) ? "Keyword" : "Identifier", token);
+            printf("%s: %s\n", isKeyword(token) ? "Keyword" : "Identifier", token);
         }
 
         else if (isdigit(ch)) {
@@ -91,9 +90,7 @@ int main() {
         else if (strchr("+-*%=<>", ch)) {
             next = fgetc(fp);
 
-            if ((ch == '+' && next == '+') ||
-                (ch == '-' && next == '-') ||
-                (strchr("=<>", ch) && next == '=')) {
+            if ((ch == '+' && next == '+') || (ch == '-' && next == '-') || (strchr("=<>", ch) && next == '=')) {
                 printf("Operator: %c%c\n", ch, next);
             } else {
                 printf("Operator: %c\n", ch);
