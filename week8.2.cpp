@@ -4,108 +4,90 @@ using namespace std;
 struct Node {
     string val;
     Node *left, *right;
-    Node(string v) : val(v), left(NULL), right(NULL) {}
+    Node(string v, Node* l = nullptr, Node* r = nullptr) 
+        : val(v), left(l), right(r) {}
 };
 
-int reg = 0;
+int regCount = 0;
 
-int precedence(char op) {
+int prec(char op) {
     if (op == '*' || op == '/') return 2;
     if (op == '+' || op == '-') return 1;
     return 0;
 }
 
-void applyOp(stack<Node*>& values, stack<char>& ops) {
-    Node *root = new Node(string(1, ops.top()));
-    ops.pop();
-    root->right = values.top(); values.pop();
-    root->left = values.top(); values.pop();
-    values.push(root);
+void makeSubtree(stack<Node*>& nodes, stack<char>& ops) {
+    Node* right = nodes.top(); nodes.pop();
+    Node* left = nodes.top(); nodes.pop();
+    char op = ops.top(); ops.pop();
+    nodes.push(new Node(string(1, op), left, right));
 }
 
-Node* buildTree(string s) {
-    stack<Node*> values;
+Node* buildAST(string exp) {
+    stack<Node*> nodes;
     stack<char> ops;
 
-    for (int i = 0; i < s.size(); i++) {
-        if (isspace(s[i])) continue;
+    for (int i = 0; i < exp.length(); i++) {
+        if (isspace(exp[i])) continue;
 
-        if (isalnum(s[i])) {
-            string operand;
-            while (i < s.size() && isalnum(s[i]))
-                operand += s[i++];
+        if (isalnum(exp[i])) {
+            string val = "";
+            while (i < exp.length() && isalnum(exp[i]))
+                val += exp[i++];
             i--;
-            values.push(new Node(operand));
-        } else if (s[i] == '(') {
-            ops.push(s[i]);
-        } else if (s[i] == ')') {
-            while (!ops.empty() && ops.top() != '(')
-                applyOp(values, ops);
-            if (!ops.empty()) ops.pop();
+            nodes.push(new Node(val));
+        } else if (exp[i] == '(') {
+            ops.push('(');
+        } else if (exp[i] == ')') {
+            while (ops.top() != '(') makeSubtree(nodes, ops);
+            ops.pop();
         } else {
-            while (!ops.empty() && ops.top() != '(' && precedence(ops.top()) >= precedence(s[i]))
-                applyOp(values, ops);
-            ops.push(s[i]);
+            while (!ops.empty() && prec(ops.top()) >= prec(exp[i]))
+                makeSubtree(nodes, ops);
+            ops.push(exp[i]);
         }
     }
 
-    while (!ops.empty())
-        applyOp(values, ops);
-
-    return values.empty() ? NULL : values.top();
+    while (!ops.empty()) makeSubtree(nodes, ops);
+    return nodes.top();
 }
 
-vector<string> canvas(15, string(50, ' '));
-
-void draw(Node* root, int r, int c) {
+void printAST(Node* root, string indent = "") {
     if (!root) return;
-    canvas[r].replace(c, root->val.size(), root->val);
-    if (root->left) {
-        canvas[r + 1][c - 1] = '/';
-        draw(root->left, r + 2, c - 2);
-    }
-    if (root->right) {
-        canvas[r + 1][c + 1] = '\\';
-        draw(root->right, r + 2, c + 2);
-    }
+    cout << indent << root->val << "\n";
+    printAST(root->left, indent + "  |--");
+    printAST(root->right, indent + "  |--");
 }
 
-void printAST(Node* root) {
-    draw(root, 0, 10);
-    for (string& line : canvas)
-        if (line.find_first_not_of(' ') != string::npos)
-            cout << line.substr(6, line.find_last_not_of(' ') - 5) << "\n";
-}
-
-int generateCode(Node *root) {
+int generateCode(Node* root) {
     if (!root->left && !root->right) {
-        cout << "MOV R" << reg << ", " << root->val << "\n";
-        return reg++;
+        cout << "MOV R" << regCount << ", " << root->val << "\n";
+        return regCount++;
     }
 
-    int left = generateCode(root->left);
-    int right = generateCode(root->right);
+    int leftReg = generateCode(root->left);
+    int rightReg = generateCode(root->right);
 
-    string op = (root->val == "+") ? "ADD" :
-                (root->val == "-") ? "SUB" :
-                (root->val == "*") ? "MUL" : "DIV";
+    if (root->val == "+") cout << "ADD ";
+    else if (root->val == "-") cout << "SUB ";
+    else if (root->val == "*") cout << "MUL ";
+    else if (root->val == "/") cout << "DIV ";
 
-    cout << op << " R" << left << ", R" << right << "\n";
-    return left;
+    cout << "R" << leftReg << ", R" << rightReg << "\n";
+    return leftReg;
 }
 
 int main() {
-    string expression;
+    string exp;
     cout << "Enter expression: ";
-    getline(cin, expression);
+    getline(cin, exp);
 
-    Node *root = buildTree(expression);
-    if (!root) return 0;
+    Node* root = buildAST(exp);
 
-    cout << "\nABSTRACT SYNTAX TREE\n";
+    cout << "\n--- ABSTRACT SYNTAX TREE ---\n";
     printAST(root);
 
-    cout << "\nMACHINE CODE\n";
+    cout << "\n--- MACHINE CODE ---\n";
     generateCode(root);
 
     return 0;

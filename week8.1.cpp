@@ -33,7 +33,7 @@ string generateTAC(string s) {
             op.push('(');
         } else if (s[i] == ')') {
             while (op.top() != '(') applyOp(val, op);
-            op.pop(); // Pop '('
+            op.pop();
         } else {
             while (!op.empty() && prec(op.top()) >= prec(s[i])) applyOp(val, op);
             op.push(s[i]);
