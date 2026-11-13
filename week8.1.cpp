@@ -1,18 +1,18 @@
 #include <bits/stdc++.h>
 using namespace std;
 
-int tempCount = 1;
-
-string newTemp(){
-    return "t" + to_string(tempCount++);
+int prec(char c) {
+    return (c == '*' || c == '/') ? 2 : (c == '+' || c == '-') ? 1 : 0;
 }
 
-int precedence(char op) {
-    if (op == '*' || op == '/')
-        return 2;
-    if (op == '+' || op == '-')
-        return 1;
-    return 0;
+void applyOp(stack<string>& val, stack<char>& op) {
+    static int tCount = 1;
+    string b = val.top(); val.pop();
+    string a = val.top(); val.pop();
+    char o = op.top(); op.pop();
+    string t = "t" + to_string(tCount++);
+    cout << t << " = " << a << " " << o << " " << b << "\n";
+    val.push(t);
 }
 
 string generateTAC(string s) {
@@ -20,103 +20,34 @@ string generateTAC(string s) {
     stack<string> val;
 
     for (int i = 0; i < s.size(); i++) {
-        if (isspace(s[i]))
-            continue;
+        if (isspace(s[i])) continue;
 
-        if (isalnum(s[i])){
+        if (isalnum(s[i])) {
             string operand;
-
-            while (i < s.size() && isalnum(s[i]))
-                operand += s[i++];
-
-            i--;
+            while (i < s.size() && isalnum(s[i])) operand += s[i++];
             val.push(operand);
-        }
-        else if (s[i] == '(')
-            op.push(s[i]);
-
-        else if (s[i] == ')')
-        {
-            while (!op.empty() && op.top() != '(')
-            {
-                string b = val.top();
-                val.pop();
-
-                string a = val.top();
-                val.pop();
-
-                char oper = op.top();
-                op.pop();
-
-                string t = newTemp();
-
-                cout << t << " = " << a << " "
-                     << oper << " " << b << "\n";
-
-                val.push(t);
-            }
-
-            if (!op.empty())
-                op.pop();
-        }
-        else
-        {
-            while (!op.empty() && precedence(op.top()) >= precedence(s[i]))
-            {
-                string b = val.top();
-                val.pop();
-
-                string a = val.top();
-                val.pop();
-
-                char oper = op.top();
-                op.pop();
-
-                string t = newTemp();
-
-                cout << t << " = " << a << " "
-                     << oper << " " << b << "\n";
-
-                val.push(t);
-            }
-
+            i--;
+        } else if (s[i] == '(') {
+            op.push('(');
+        } else if (s[i] == ')') {
+            while (op.top() != '(') applyOp(val, op);
+            op.pop(); // Pop '('
+        } else {
+            while (!op.empty() && prec(op.top()) >= prec(s[i])) applyOp(val, op);
             op.push(s[i]);
         }
     }
 
-    while (!op.empty())
-    {
-        string b = val.top();
-        val.pop();
-
-        string a = val.top();
-        val.pop();
-
-        char oper = op.top();
-        op.pop();
-
-        string t = newTemp();
-
-        cout << t << " = " << a << " " << oper << " " << b << "\n";
-
-        val.push(t);
-    }
-
+    while (!op.empty()) applyOp(val, op);
     return val.top();
 }
 
-int main()
-{
-    string s, result, variable;
-
+int main() {
+    string s, result;
     cout << "Enter expression: ";
     getline(cin, s);
-
     cout << "\nTHREE ADDRESS CODE\n";
-
     result = generateTAC(s);
-
     cout << "Result = " << result << "\n";
-
     return 0;
 }
