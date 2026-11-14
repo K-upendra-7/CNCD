@@ -2,105 +2,131 @@
 using namespace std;
 
 map<char, vector<string>> grammar;
-map<pair<char, char>, string> table;
 map<char, set<char>> firstSet, followSet;
+map<pair<char, char>, string> table;
 char startSymbol;
 
-set<char> firstOfString(string s) {
+bool addSymbol(set<char>& s, char val) {
+    return s.insert(val).second;
+}
+
+set<char> findFirst(string s) {
     if (s.empty() || s == "#") return {'#'};
-    set<char> res;
+    set<char> result;
     for (char c : s) {
-        set<char> temp = grammar.count(c) ? firstSet[c] : set<char>{c};
-        for (char x : temp) if (x != '#') res.insert(x);
-        if (!temp.count('#')) return res;
+        if (!grammar.count(c)) {
+            result.insert(c);
+            return result;
+        }
+        for (char x : firstSet[c]) {
+            if (x != '#') result.insert(x);
+        }
+        if (!firstSet[c].count('#')) return result;
     }
-    res.insert('#');
-    return res;
+    result.insert('#');
+    return result;
 }
 
 int main() {
     int n;
     cout << "Enter number of productions: ";
     cin >> n;
-    cout << "Enter productions (E->TR):\n";
+    cout << "Enter productions (e.g., E->TR):\n";
 
     for (int i = 0; i < n; i++) {
-        string s, p;
+        string s, prod;
         cin >> s;
         char lhs = s[0];
         if (i == 0) startSymbol = lhs;
+
         stringstream ss(s.substr(3));
-        while (getline(ss, p, '|')) grammar[lhs].push_back(p);
+        while (getline(ss, prod, '|')) {
+            grammar[lhs].push_back(prod);
+        }
     }
 
-    for (bool chg = true; chg; ) {
-        chg = false;
-        for (auto& [nt, prods] : grammar)
-            for (string& p : prods)
-                for (char c : firstOfString(p))
-                    chg |= firstSet[nt].insert(c).second;
+    bool changed = true;
+    while (changed) {
+        changed = false;
+        for (auto& [nt, prods] : grammar) {
+            for (string p : prods) {
+                for (char c : findFirst(p)) {
+                    if (addSymbol(firstSet[nt], c)) changed = true;
+                }
+            }
+        }
     }
 
     followSet[startSymbol].insert('$');
-    for (bool chg = true; chg; ) {
-        chg = false;
-        for (auto& [lhs, prods] : grammar)
-            for (string& p : prods)
+    changed = true;
+    while (changed) {
+        changed = false;
+        for (auto& [lhs, prods] : grammar) {
+            for (string p : prods) {
                 for (int i = 0; i < p.size(); i++) {
-                    if (!grammar.count(p[i])) continue;
-                    set<char> temp = firstOfString(p.substr(i + 1));
-                    for (char c : temp)
-                        if (c != '#') chg |= followSet[p[i]].insert(c).second;
-                    if (temp.count('#'))
-                        for (char c : followSet[lhs])
-                            chg |= followSet[p[i]].insert(c).second;
+                    char B = p[i];
+                    if (!grammar.count(B)) continue;
+
+                    set<char> nextFirst = findFirst(p.substr(i + 1));
+                    for (char c : nextFirst) {
+                        if (c != '#' && addSymbol(followSet[B], c)) changed = true;
+                    }
+                    if (nextFirst.count('#')) {
+                        for (char c : followSet[lhs]) {
+                            if (addSymbol(followSet[B], c)) changed = true;
+                        }
+                    }
                 }
+            }
+        }
     }
 
-    auto printSets = [](string title, map<char, set<char>>& mp) {
-        cout << "\n" << title << "\n";
-        for (auto& [nt, s] : mp) {
-            cout << nt << " : { ";
-            for (char c : s) cout << c << " ";
-            cout << "}\n";
-        }
-    };
-    printSets("FIRST SETS", firstSet);
-    printSets("FOLLOW SETS", followSet);
-
-    set<char> terms = {'$'};
+    set<char> terminals = {'$'};
     for (auto& [nt, prods] : grammar) {
-        for (string& p : prods) {
-            set<char> temp = firstOfString(p);
-            if (temp.count('#'))
-                temp.insert(followSet[nt].begin(), followSet[nt].end());
-            for (char t : temp) {
+        for (string p : prods) {
+            set<char> firstP = findFirst(p);
+
+            if (firstP.count('#')) {
+                for (char c : followSet[nt]) firstP.insert(c);
+            }
+
+            for (char t : firstP) {
                 if (t == '#') continue;
-                if (table.count({nt, t})) return cout << "\nGrammar is not LL(1)\n", 0;
+                if (table.count({nt, t})) {
+                    cout << "\nGrammar is not LL(1)\n";
+                    return 0;
+                }
                 table[{nt, t}] = p;
-                terms.insert(t);
+                terminals.insert(t);
             }
         }
     }
 
     cout << "\nPREDICTIVE PARSING TABLE\nNT\t";
-    for (char t : terms) cout << t << "\t";
+    for (char t : terminals) cout << t << "\t";
     cout << "\n";
     for (auto& [nt, _] : grammar) {
         cout << nt << "\t";
-        for (char t : terms) cout << (table.count({nt, t}) ? table[{nt, t}] : "-") << "\t";
+        for (char t : terminals) {
+            cout << (table.count({nt, t}) ? table[{nt, t}] : "-") << "\t";
+        }
         cout << "\n";
     }
 
-    string input, st = {'$', startSymbol};
+    string input;
     cout << "\nEnter input string: ";
     cin >> input;
     input += '$';
 
+    string st = "$";
+    st += startSymbol;
+
     cout << "\nSTACK\t\tINPUT\t\tACTION\n";
     int i = 0;
     while (!st.empty()) {
-        char top = st.back(), cur = input[i];
+        char top = st.back();
+        char cur = input[i];
+
         cout << string(st.rbegin(), st.rend()) << "\t\t" << input.substr(i) << "\t\t";
 
         if (top == '$' && cur == '$') {
@@ -114,7 +140,9 @@ int main() {
             string p = table[{top, cur}];
             cout << top << "->" << p << "\n";
             st.pop_back();
-            if (p != "#") st.append(p.rbegin(), p.rend());
+            if (p != "#") {
+                for (int j = p.size() - 1; j >= 0; j--) st += p[j];
+            }
         } else {
             cout << "ERROR\n\nString Rejected\n";
             return 0;

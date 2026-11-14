@@ -2,30 +2,26 @@
 using namespace std;
 
 map<char, vector<string>> grammar;
-map<char, set<char>> first, follow;
-char start;
+map<char, set<char>> firstSet, followSet;
+char startSymbol;
+
+bool addSymbol(set<char>& s, char val) {
+    return s.insert(val).second;
+}
 
 set<char> findFirst(string s) {
+    if (s.empty() || s == "#") return {'#'};
+
     set<char> result;
-
-    if (s == "#" || s.empty()) {
-        result.insert('#');
-        return result;
-    }
-
     for (char c : s) {
         if (!grammar.count(c)) {
             result.insert(c);
             return result;
         }
-
-        for (char x : first[c]) {
-            if (x != '#')
-                result.insert(x);
+        for (char x : firstSet[c]) {
+            if (x != '#') result.insert(x);
         }
-
-        if (!first[c].count('#'))
-            return result;
+        if (!firstSet[c].count('#')) return result;
     }
 
     result.insert('#');
@@ -36,86 +32,51 @@ int main() {
     int n;
     cout << "Enter number of productions: ";
     cin >> n;
-
-    cout << "Enter productions (A->aB):\n";
+    cout << "Enter productions (e.g., A->aB|c):\n";
 
     for (int i = 0; i < n; i++) {
-        string s;
+        string s, prod;
         cin >> s;
-
         char lhs = s[0];
+        if (i == 0) startSymbol = lhs;
 
-        if (i == 0)
-            start = lhs;
-
-        string rhs = s.substr(3);
-        string p = "";
-
-        for (char c : rhs) {
-            if (c == '|') {
-                grammar[lhs].push_back(p);
-                p = "";
-            } else {
-                p += c;
-            }
+        stringstream ss(s.substr(3));
+        while (getline(ss, prod, '|')) {
+            grammar[lhs].push_back(prod);
         }
-
-        grammar[lhs].push_back(p);
     }
 
-    // Calculate FIRST
-    bool change = true;
-
-    while (change) {
-        change = false;
-
-        for (auto x : grammar) {
-            char nt = x.first;
-
-            for (string p : x.second) {
-                set<char> temp = findFirst(p);
-
-                for (char c : temp) {
-                    if (first[nt].insert(c).second)
-                        change = true;
+    bool changed = true;
+    while (changed) {
+        changed = false;
+        for (auto& [nt, prods] : grammar) {
+            for (string p : prods) {
+                for (char c : findFirst(p)) {
+                    if (addSymbol(firstSet[nt], c)) changed = true;
                 }
             }
         }
     }
 
-    // Calculate FOLLOW
-    follow[start].insert('$');
-
-    change = true;
-
-    while (change) {
-        change = false;
-
-        for (auto x : grammar) {
-            char lhs = x.first;
-
-            for (string p : x.second) {
+    followSet[startSymbol].insert('$');
+    changed = true;
+    while (changed) {
+        changed = false;
+        for (auto& [lhs, prods] : grammar) {
+            for (string p : prods) {
                 for (int i = 0; i < p.size(); i++) {
+                    char B = p[i];
+                    if (!grammar.count(B)) continue;
 
-                    char c = p[i];
+                    set<char> nextFirst = findFirst(p.substr(i + 1));
 
-                    if (!grammar.count(c))
-                        continue;
-
-                    string remaining = p.substr(i + 1);
-                    set<char> temp = findFirst(remaining);
-
-                    for (char a : temp) {
-                        if (a != '#') {
-                            if (follow[c].insert(a).second)
-                                change = true;
-                        }
+                    for (char c : nextFirst) {
+                        if (c != '#' && addSymbol(followSet[B], c)) changed = true;
                     }
 
-                    if (temp.count('#')) {
-                        for (char a : follow[lhs]) {
-                            if (follow[c].insert(a).second)
-                                change = true;
+                    if (nextFirst.count('#')) {
+                        for (char c : followSet[lhs]) {
+                            if (addSymbol(followSet[B], c)) changed = true;
                         }
                     }
                 }
@@ -123,27 +84,17 @@ int main() {
         }
     }
 
-    // Print FIRST
-    cout << "\nFirst:\n";
-
-    for (auto x : grammar) {
-        char nt = x.first;
-
+    cout << "\nFIRST Sets:\n";
+    for (auto& [nt, s] : firstSet) {
         cout << "FIRST(" << nt << ") = { ";
-        for (char c : first[nt])
-            cout << c << " ";
+        for (char c : s) cout << c << " ";
         cout << "}\n";
     }
 
-    // Print FOLLOW
-    cout << "\nFollow:\n";
-
-    for (auto x : grammar) {
-        char nt = x.first;
-
+    cout << "\nFOLLOW Sets:\n";
+    for (auto& [nt, s] : followSet) {
         cout << "FOLLOW(" << nt << ") = { ";
-        for (char c : follow[nt])
-            cout << c << " ";
+        for (char c : s) cout << c << " ";
         cout << "}\n";
     }
 
